@@ -26,7 +26,8 @@ ADD target/dockTest-0.0.1-SNAPSHOT.jar dockTest.jar
 
 ENTRYPOINT ["java","-jar","dockTest.jar"]
 ```
-
+Image of this application can be pulled by 
+docker pull -p 8080:8080 vinayakwarad/dock-test:latest
 ---
 
 # Prerequisites
