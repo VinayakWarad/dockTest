@@ -1,3 +1,5 @@
 spring:
   application:
     name: dockTest
+
+APP_ENV : DEV

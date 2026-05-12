@@ -1,0 +1,34 @@
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: dock-test-k8s
+  namespace: dev
+
+spec:
+  selector:
+    app: dock-test-k8s  #Finds matching pods using labels and Routes traffic to them
+  ports:
+    - protocol: TCP
+      port: 80               #Service receives req on 80
+      targetPort: 8080     #Above received request will be Forwards to pod/container on 8080
+
+  type: NodePort #Exposes application outside the cluster
+
+#kubectl apply -f service.yml -n dev
+#A Service provides:
+
+# Stable network access to Pods
+#Load balancing between Pods
+#Fixed endpoint even if Pods restart
+
+#Without Service:
+#x`
+# Pods get temporary IPs
+# IP changes whenever Pod restarts
+# Other apps/users cannot reliably access your application
+
+ #D:\dockTest\K8s>kubectl get svc -n dev
+ #NAME            TYPE       CLUSTER-IP      EXTERNAL-IP   PORT(S)        AGE
+ #dock-test-k8s   NodePort   10.97.181.101   <none>        80:30906/TCP   3m27s
+

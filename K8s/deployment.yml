@@ -1,0 +1,56 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: dock-test-k8s
+  namespace: dev
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: dock-test-k8s   # Maintains all the pods with name
+
+  template:
+    metadata:
+      labels:
+        app: dock-test-k8s  #Every Pod created from this template will have label app=dock-test-k8s
+
+    spec:
+      containers:
+        - name: dock-test-k8s # Create a container inside the Pod and give that container the name dock-test-k8s
+          image: vinayakwarad/dock-test:v1 #Image from my docker account
+          imagePullPolicy: Always
+
+          ports:
+            - containerPort: 8080
+#          env:                                       # Connecting deployment yml to config yml properties
+#            - name: APP_ENV
+#              valueFrom:
+#                configMapKeyRef:
+#                  name: dock-test
+#                  key: APP_ENV                       #Pasiing only one key, But if we want multiple props this step should be repeated
+          volumeMounts:
+          - name: config-volume
+            mountPath: /config
+      volumes:
+        - name: config-volume
+          configMap:
+            name: dock-test
+
+# kubectl apply -f deployment.yml -dev
+# D:\dockTest\K8s>kubectl get deployments -n dev
+# NAME            READY   UP-TO-DATE   AVAILABLE   AGE
+# dock-test-k8s   2/2     2            2           2m31s
+
+# With above steps we achieved that docker image was pulled and 2 pods of it were created as per this file
+
+#D:\dockTest\K8s>kubectl get deployments -n dev
+#NAME            READY   UP-TO-DATE   AVAILABLE   AGE
+#dock-test-k8s   2/2     2            2           2m31s
+
+ #D:\dockTest\K8s>kubectl get po -n dev
+ #NAME                             READY   STATUS    RESTARTS   AGE
+ #dock-test-k8s-5878ff5b59-qk6tc   1/1     Running   0          4m24s
+ #dock-test-k8s-5878ff5b59-r4djj   1/1     Running   0          4m24s
