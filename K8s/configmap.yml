@@ -6,8 +6,7 @@ metadata:
   namespace: dev
 
 data:
-  application.properties: |      # Create a file named application.properties with multiline content which will be used 
-                                  #for volume mount
+  application.properties: |      # Create a file named application.properties with multiline content which will be used for volume mount
     server.port=8080
     app.message=Hello from Kubernetes
     APP_ENV=devTestEnvt         #

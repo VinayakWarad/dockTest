@@ -193,7 +193,8 @@ End to End steps followed in this demo k8s deployment for out app:
 11. Apply deployment yml : "kubectl apply -f deployment.yml"
 11. Apply service.yml : "kubectl apply -f service.yml"
 12. Apply configmap : "kubectl apply -f configmap.yml"
-13. Get URL of where our application can be accessed inside minikube cluster for k8's
+13. Apply Secret : "kubectl apply -f secret.yml"
+4Get URL of where our application can be accessed inside minikube cluster for k8's
     - cmd : "minikube service dock-test-k8s -n dev"
     - Sample output : "http://127.0.0.1:53008" +  append our end point
     - Final URL to be used in browser : http://127.0.0.1:53008/welcome
@@ -201,6 +202,8 @@ End to End steps followed in this demo k8s deployment for out app:
 Conclusion : By following these steps, you can seamlessly build a Spring Boot application, containerize it with Docker, 
 push it to Docker Hub, and deploy it on a Kubernetes cluster using Minikube—ensuring a complete workflow from local 
 development to cloud‑native deployment.
+
+* You can create multiple secret.yml files and apply to K8s cluster (db-secret,camunda-secret,jwt-secret,mail-secret)
 
 # Author
 Vinayak Warad

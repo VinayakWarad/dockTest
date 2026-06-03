@@ -1,0 +1,40 @@
+apiVersion: networking.k8s.io/v1   # Kubernetes API version for Ingress resource
+kind: Ingress                      # Resource type = Ingress
+
+metadata:
+  name: dock-test-ingress          # Name of the ingress resource
+  namespace: dev                   # Ingress belongs to dev namespace
+
+spec:
+  rules:                           # Routing rules list
+    - host: docktest.local         # Incoming request hostname to match - This is matched with hosts file C:\Windows\System32\drivers\etc and forwards request to local : 127.0.0.1
+      http:                        # HTTP routing configuration
+        paths:                     # List of path-based routing rules
+          - path: /                # Match all URLs starting with /
+            pathType: Prefix       # Prefix means /abc also matches
+            backend:               # Where traffic should be forwarded
+              service:
+                name: dock-test-k8s    # Kubernetes service name
+
+                port:
+                  number: 80           # Service port to forward traffic to
+
+#Prereq to apply this file :
+# Complete ingress setup in local
+#Enable Ingress Controller : "minikube addons enable ingress" - This installs NGINX Ingress Controller
+#Verify Controller Running : "kubectl get pods -n ingress-nginx"
+# Expected from above step : ingress-nginx-controller - Running
+
+# In service file type should be clusterIp type: ClusterIP
+# Then apply : "kubectl apply -f service.yml"
+# Then apply : kubectl apply -f deployment.yml
+# Then apply : kubectl apply -f ingress.yml
+#Verify ingress : "kubectl get ingress -n dev"
+#Expected
+#  NAME                 CLASS   HOSTS
+#dock-test-ingress    nginx   docktest.local
+# Run cmd : "minikube tunnel"
+#Add hosts File Entry in path : C:\Windows\System32\drivers\etc\hosts
+#127.0.0.1 docktest.local
+# Access application using "http://docktest.local/welcome"
+#Note : Here docktest.local is our ingress entry point for our application

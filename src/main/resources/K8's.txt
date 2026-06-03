@@ -1,0 +1,887 @@
+Git installation
+Docker image creation 
+
+Step 10 — Learn Next Important Concepts
+
+After this, best learning order is:
+
+Namespaces
+ConfigMap
+Secret
+Persistent Volume
+Ingress
+Liveness & Readiness probes
+Resource limits
+Helm
+StatefulSet
+Production deployments
+
+You are now beyond beginner-level Kubernetes basics.
+
+Now that you know Kubernetes basics:
+
+Learn in this order:
+Helm templates
+values.yaml
+deployments via Helm
+environment-based configs
+Helm dependencies
+Helm + ArgoCD
+
+Next Best Step After This
+
+Once basic Helm works:
+
+Add Ingress
+Add ConfigMap
+Add Secret
+Separate dev/prod values
+Add PostgreSQL dependency
+Learn Helm dependencies
+Learn ArgoCD
+
+***************************************************************************
+Step 1 : Creating Jar file  - "mvn clean package"
+Step 2 : and creating image of it in local : "docker build -t dock-test:v1 ."  (Run this in path where your Dockerfile will be present)
+Step 3 : verify if image is created : "docker images"
+Step 4 : Running image in local : "docker run -p 8080:8080 dock-test:v1"
+Step 5 : Access the application : "http://localhost:8080/welcome"
+Expected output in browser: Welcome to docker DEV environment with DB user - testUser
+Reason : 
+APP_ENV:DEV and DB_USERNAME: key is not present in app.props so we get default value of "testUser" that we gave in main class.
+Till now we verified our app created image ran successfully and we are getting expected outcome
+Note : You can also see that current image will be present in docker desktop images and running containers BUT WITHOUT USERNAME PREFIX
+------------------------------------
+Now lets create tag for our image and push it to docker repo so that app can be accessed globally.
+
+Step 1 : docker tag dock-test:v1 vinayakwarad/dock-test:v1
+For same available image it will give tag instead of creating new image - This can be pushed to docker repo. Docker repo image format UN/ImageName
+
+Step 2 :Pushing image to my docker account "docker push vinayakwarad/dock-test:v1"
+
+----------------------------------
+
+Lets delete local images and try an approach to pull it from remote repo and run it in local 
+
+Step 1 : Get list of running containers "docker ps"
+
+Step 2 : Check if any container/s running then stop them 
+docker ps
+docker stop <container-id>
+docker rm <container-id>
+
+Step 3 : Delete Local Image
+docker rmi vinayakwarad/dock-test:v1
+docker rmi dock-test:v1
+Verify if images are removed : "docker images"
+
+Step 4 : Now pull images from docker repo 
+docker pull vinayakwarad/dock-test:v1
+Verify if image is pulled : "docker images"
+
+Step 5 : Run image locally
+docker run -p 8080:8080 dock-test:v1
+
+Step 6 : Access application 
+http://localhost:8080/welcome
+
+Expected output in browser: Welcome to docker DEV environment with DB user - testUser
+Reason : 
+APP_ENV:DEV and DB_USERNAME: key is not present in app.props so we get default value of "testUser" that we gave in main class.
+ 
+Till now we dealt with creating local images and running it on docker desktop, Lets STart learning about K8's now 
+--------------------------------------
+
+
+Minikube : Provides local k8's cluster with 1 node (Both Master and Worker will be part of same node)
+Installation of Minikube - Refer this document in later section 
+Also refer - Steps to over come Minikube not starting correctly
+To delete everything inside your dev namespace in Kubernetes: - Refer this document in later section
+
+Lets deploy our application to minikube : 
+
+Step 1 : Start Minikube
+minikube start --driver=docker --memory=4096 --cpus=2
+
+Step 2 : Verify minikube started correctly : 
+minikube status
+kubectl get nodes
+
+Step 3 : create dev namespace 
+kubectl create namespace dev
+Optional : Run this in your terminal so default namespace will be dev: "kubectl config set-context --current --namespace=dev"
+Verify namespace : "kubectl config view --minify | findstr namespace"
+
+Step 4 :  Enable ingress addons
+minikube addons enable ingress
+verify : "kubectl get pods -n ingress-nginx" -> Expected ingress-nginx-controller running.
+Verify Ingress Controller Service: kubectl get svc -n ingress-nginx
+
+Step 5 : Apply Manifest files in following order
+1. Namespace - kubectl apply -f namespace.yml -n dev
+2. ConfigMap - kubectl apply -f configmap.yml -n dev
+3. Secret - kubectl apply -f secret.yml -n dev
+4. PersistentVolume / PVC (if any) - kubectl apply -f pvc.yml -n dev
+5. Deployment / StatefulSet - kubectl apply -f deployment.yml -n dev
+6. Service - kubectl apply -f service.yml -n dev
+7. Ingress - kubectl apply -f ingress.yml -n dev
+
+Step 6 : Verify if pods are running
+kubectl get pods -n dev
+
+Step 7 : Verify Service - "kubectl get svc -n dev" -> type:ClusterIP
+
+Step 8 : Verify ingress - "kubectl get ingress -n dev" -> 
+NAME                CLASS   HOSTS
+dock-test-ingress   nginx   docktest.local
+
+Step 9: Get minikubeIp : "minikube ip"
+Step 10 : Update Windows Hosts File : C:\Windows\System32\drivers\etc\hosts -> put this in hosts file at end "192.168.49.2 docktest.local"
+Step 11: Flush DNS Cache -> "Flush DNS Cache"
+step 12 : Verify Hostname Resolution -> "ping docktest.local" -> Expected : Pinging docktest.local [192.168.49.2]
+Step 13 : Start Minikube Tunnel -> minikube tunnel
+Step 13 : 
+Get service 
+kubectl get svc -n dev
+
+Step 10 : Access application using URL :
+ http://docktest.local/welcome
+ 
+**VVIP** -> Sometimes step 10 does not work in local beacause of network limitation. So just verify below
+get URL where minikube exposes service URL :
+minikube service <Service-name> --url  -> Here serrvice name should be taken from service.yml file
+minikube service dock-test-k8s --url
+
+Steps visualization
+
+Deployment
+   ↓
+Creates Pods
+   ↓
+Pods run Spring Boot container
+   ↓
+Service exposes Pods
+   ↓
+Minikube exposes Service URL
+
+- We are running minikube and for deployment we are using image that is pushed to docker account (vinayakwarad),
+ deployment.yaml and service.yaml can be created and run anywhere in our system, We just need to go to specified path and use above commands.
+
+**************************************************************************************************************************
+
+Lets check self healing feature of K8's
+
+Whenever the pods goes down then based on deployment that we have applied to dev namespace will get pickedup and new pod of that servicce will comeup automatically.
+
+C:\Users\vinay>kubectl get po -n dev
+NAME                             READY   STATUS    RESTARTS   AGE
+dock-test-k8s-5878ff5b59-qk6tc   1/1     Running   0          35m
+dock-test-k8s-5878ff5b59-r4djj   1/1     Running   0          35m
+
+C:\Users\vinay>kubectl delete po dock-test-k8s-5878ff5b59-r4djj -n dev
+pod "dock-test-k8s-5878ff5b59-r4djj" deleted from dev namespace
+
+C:\Users\vinay>kubectl get po -n dev
+NAME                             READY   STATUS    RESTARTS   AGE
+dock-test-k8s-5878ff5b59-gg8xw   1/1     Running   0          16s   --> This was automatically created when one pod was brought down using 
+dock-test-k8s-5878ff5b59-qk6tc   1/1     Running   0          36m
+
+********************************************************************
+
+Lets check feature of scaling application
+Even though deployment yml consists replica as 2, If we run below command pod count will be now 3.
+
+C:\Users\vinay>kubectl scale deployment dock-test-k8s --replicas=3 -n dev
+
+**********************************************
+
+Installing Helm - Package manager instead of applying manifest files one by one.
+
+Step 1 : Check helm is installed or not
+helm version
+
+Step 2 : Create helm template -> THis automatically creates manifest files in path where this command is run.
+"helm create my-docktest-app"
+my-docktest-app/
+ ├── Chart.yaml
+ ├── values.yaml
+ ├── charts/
+ └── templates/
+      ├── deployment.yaml
+      ├── service.yaml
+      ├── ingress.yaml
+      ├── serviceaccount.yaml
+      ├── hpa.yaml
+      ├── _helpers.tpl
+      └── tests/
+
+Step 3 : Update all required manifest files as per your requirement
+
+Step 4 : See final generated helm template file
+helm template my-docktest-app .
+
+Step 5 : Install Chart
+cmd : "helm install my-docktest-app ."  - This deploys app into Minikube.
+
+OR 
+If same helm was already installed on that environment once and you want to upgrade it
+"helm upgrade my-docktest-app . -n dev"
+
+Step 6 :  Verify Resources
+cmd : "kubectl get all"
+You should see: pod,deployment,service
+
+Step 7 : Access Application
+http://<minikube-ip>:32000/welcome
+http://192.168.49.2:32000/welcome
+Get minikube ip : "minikube ip"
+OR - "minikube service my-docktest-app --url"
+
+Step 8 : Upgrade deployment :
+Suppose image changes then run "helm upgrade my-docktest-app ." - This updates deployment.
+
+Step 9 : Uninstall
+Remove everything: "helm uninstall my-docktest-app"
+
+***********************************************************
+
+vinay Optimize this later : Keep commands - maintain hygine of this file
+
+Deploying /intsalling helm chart environment specific MOST important real-world Helm concept
+my-docktest-app/
+├── Chart.yaml
+├── values.yaml
+├── values-dev.yaml
+├── values-prod.yaml
+└── templates/
+
+* Base values.yaml: Keep common defaults here 
+Example:
+image:
+  repository: vinayakwarad/dock-test
+service:
+  port: 8080
+
+values-dev.yaml :
+replicaCount: 1
+image:
+  tag: dev
+env:
+  APP_ENV: DEV
+resources:
+  requests:
+    memory: "256Mi"
+  limits:
+    memory: "512Mi"
+	
+values-prod.yaml
+replicaCount: 3
+image:
+  tag: prod
+env:
+  APP_ENV: PROD
+resources:
+  requests:
+    memory: "512Mi"
+  limits:
+    memory: "1Gi"	
+ 
+Result :
+deployment.yaml : Reference values dynamically:
+replicas: {{ .Values.replicaCount }}
+Image:
+image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+Environment variable:
+env:
+  - name: APP_ENV
+    value: {{ .Values.env.APP_ENV }}
+	
+Command to acheive above "helm install myapp . -f values-dev.yaml -n dev"
+
+Priority of applying charts :
+values.yaml     -- 3rd (Executes 1st)
+    <
+values-dev.yaml -- 2nd (Executes 2nd / overrides values.yml)
+    <
+--set command line	--1st (Executes 3rd / overrides values.yml and values-dev)
+ 
+***********************************************
+Let’s do the PostgresSql deployment - production-style approach using Helm + Bitnami PostgreSQL chart.
+
+ you’ll connect: Helm, Secrets, ConfigMaps, Services, PVC, StatefulSet, real DB usage, all together.
+ 
+ 
+Main step 1 : 
+Step 1 — Add Helm Repository : "helm repo add bitnami https://charts.bitnami.com/bitnami"
+ "helm repo update"
+ 
+Step 2 — Install PostgreSQL
+
+Run:
+
+helm install my-postgres bitnami/postgresql ^
+  --namespace dev ^
+  --set auth.username=myuser ^
+  --set auth.password=mypassword ^
+  --set auth.database=mydb
+
+Helm automatically creates: StatefulSet, PVC, Secret, Service, PostgreSQL Pod
+
+Step 3 — Verify Installation
+ Check Pods: "kubectl get pods -n dev" You should see: my-postgres-postgresql-0
+Check StatefulSet: "kubectl get statefulset -n dev"
+Check PVC: "kubectl get pvc -n dev" -> You’ll see persistent storage created automatically.
+Check Service: "kubectl get svc -n dev" ->You’ll see PostgreSQL internal service.
+
+Step 4 — Check Generated Secret "kubectl get secret -n dev" -> You’ll see PostgreSQL credentials secret auto-created.
+
+MOST IMPORTANT THING TO OBSERVE, You installed:, ONE Helm chart but Kubernetes automatically created: StatefulSet, PVC, Secret, Service. This is real production Helm power.
+
+Lets understand resouirces created in this step :
+
+See All Resources : "kubectl get all -n dev" -> Pod,Service,StatefulSet
+
+See stateful set : "kubectl get statefulset -n dev" -> you should see my-postgres-postgresql
+Inspect StatefulSet -> "kubectl describe statefulset my-postgres-postgresql -n dev" and observe :replica count,volume claims,pod naming
+
+See Persistent Volume Claims (VERY IMPORTANT) : "kubectl get pvc -n dev" -> You will see "data-my-postgres-postgresql-0" -> This is storage dedicated to Pod: "my-postgres-postgresql-0"
+Important StatefulSet Concept : Pod 0  -> PVC 0, Pod 1  -> PVC 1 Each Pod gets stable storage.
+
+See Persistent Volumes : "kubectl get pv" -> Minikube dynamically created actual storage volume.
+
+Inspect Service : "kubectl get svc -n dev" -> You’ll see: ClusterIP service,headless service
+VERY IMPORTANT -> You may see: my-postgres-postgresql-hl -> This is: Headless Service -> Used by StatefulSet for stable DNS.
+
+Verify Stable Pod Naming : "kubectl get pods -n dev" -> Observe -> "my-postgres-postgresql-0" This is Not random like Deployment Pods.This stability is core StatefulSet behavior.
+
+Key leqarning here :
+| Resource         | Why Created         |
+| ---------------- | ------------------- |
+| StatefulSet      | Stable DB Pod       |
+| PVC              | Persistent storage  |
+| PV               | Actual disk storage |
+| Secret           | DB credentials      |
+| Service          | Internal networking |
+| Headless Service | Stable Pod DNS      |
+
+Diff between PV and PVC ?
+PVC :
+Persistent Volume Claim (PVC) - >Request for storage-> Application says:"I need 1Gi storage"->Kubernetes finds/binds matching PV.
+Pod-> PVC  (request) -> PV   (actual storage)->Physical Disk
+
+Example PVC : Give me 1Gi persistent storage
+apiVersion: v1
+kind: PersistentVolumeClaim
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi
+	  
+Example PV : Actual 10Gi storage exists	  
+apiVersion: v1
+kind: PersistentVolume
+spec:
+  capacity:
+    storage: 10Gi
+	
+| PVC                 | PV                       |
+| ------------------- | ------------------------ |
+| requested by app    | actual storage           |
+| logical abstraction | physical/storage backend |
+| app-facing          | infrastructure-facing    |
+
+Note : In Modern Kubernetes -> you create ONLY PVC ->Kubernetes dynamically creates PV automatically using: ->StorageClass ->This is what happened in your PostgreSQL Helm install.	
+
+Real Production Example :PostgreSQL Pod says:I need 8Gi persistent storage -> PVC created. ->Cloud provider dynamically provisions->EBS disk,Azure Disk,GCP Persistent Disk as PV.
+NEVER directly care about PV :Apps request storage via:PVC ->Infrastructure handles:PV provisioning.
+
+Note 1: Whenever you install postgres Core Resources Created by Bitnami PostgreSQL Chart are :
+| Resource/File       | Kind                     | Purpose                          |
+| ------------------- | ------------------------ | -------------------------------- |
+| secrets.yaml        | Secret                   | DB username/password             |
+| svc.yaml            | Service (ClusterIP)      | Main PostgreSQL endpoint         |
+| svc-headless.yaml   | Service (Headless)       | Pod-to-pod DNS communication     |
+| statefulset.yaml    | StatefulSet              | Creates PostgreSQL Pods + PVCs   |
+| serviceaccount.yaml | ServiceAccount           | Pod identity inside cluster      |
+| networkpolicy.yaml  | NetworkPolicy (optional) | Restrict network access          |
+| pdb.yaml            | PodDisruptionBudget      | Prevent too many pods going down |
+| configmap.yaml      | ConfigMap (optional)     | PostgreSQL custom configs        |
+| pvc (generated)     | PVC                      | Persistent storage per pod       |
+| pv (dynamic)        | PV                       | Actual storage backend           |
+
+* svc.yaml (Primary Service) - Creates:
+kind: Service
+type: ClusterIP
+
+Example name: my-postgres-postgresql
+Purpose:Application JDBC connection endpoint ;Your Spring Boot app usually connects here:"jdbc:postgresql://my-postgres-postgresql:5432/mydb":This is the service you've already been using.
+
+* svc-headless.yaml
+
+Creates:
+kind: Service
+spec:
+  clusterIP: None
+
+Example:my-postgres-postgresql-hl
+Purpose:Stable DNS names for StatefulSet Pods 
+Creates DNS entries like below:Used internally for replication and pod discovery.
+postgres-0.my-postgres-postgresql-hl
+postgres-1.my-postgres-postgresql-hl
+
+* statefulset.yaml (This is the heart of the deployment.)
+Creates:
+kind: StatefulSet
+
+Purpose: Creates PostgreSQL Pods,Creates PVCs,Maintains stable identities
+
+Example:
+postgres-0
+postgres-1
+postgres-2
+
+------------------
+
+Main step 2 :
+
+Connect Spring Boot App to PostgreSQL
+
+Now you’ll connect: Spring Boot Pod → PostgreSQL Service inside Kubernetes. This is a HUGE real-world milestone.
+
+Step 1 : Get PostgreSQL Service Name : "kubectl get svc -n dev" -> You’ll see something like:my-postgres-postgresql -> This becomes DB host.
+Kubernetes Internal Networking -> Inside same namespace:my-postgres-postgresql ->acts like hostname.->No IP needed.
+
+Step 2 : Add postgres dependency -> spring-boot-starter-data-jpa and postgresql
+Update application.yml with database details
+spring:
+  datasource:
+    url: ${DB_URL}              # Configure this URL in configmap and set original val in values.yml file
+    username: ${DB_USERNAME}    #Configure this in secret yml and set original val in values.yml file
+    password: ${DB_PASSWORD}    #Configure this in secret yml and set original val in values.yml file
+    driver-class-name: org.postgresql.Driver	
+Note : Cmd to get my username/pwd which will be in encoded format : "kubectl get secret my-postgres-postgresql -n dev -o yaml"
+
+Note : As we have installed postgres directly through helm, We need to get autogenerated UN and PWD from postgres.
+command : "kubectl get secret my-postgres-postgresql -n dev -o yaml" -> Here you will get encoded postgres UN, You have to decode it and put in app.yml. BUT for Bitnami default UN is postgres
+pwd should be posgres-pwd (Admin postgres user password) from secret file of autogenerated secret file of postgres DB and it should be decoded and put into app.yml/values.yml 
+
+| Secret Key          | Meaning                      |
+| ------------------- | ---------------------------- |
+| `password`          | Password for `myuser`        |
+| `postgres-password` | Admin postgres user password |
+Since your app uses: myuser You should use: password → mypassword	
+
+
+
+********************************************************************
+
+Persistent Volumes + PVC Deep Dive
+Now you should properly understand storage lifecycle
+Learn:, PV, PVC, StorageClass, dynamic provisioning, reclaim policy, persistence verification, This will make StatefulSet crystal clear.
+
+Learning Goal :Understand:how DB data survives Pod deletion
+Step 1 — Observe Existing PVC, Run: "kubectl get pvc -n dev" You’ll see PostgreSQL PVC.
+Step 2 — Observe Existing PV, kubectl get pv, Observe:, STATUS = Bound, linked PVC.
+Important Understanding : PVC = request, PV = actual storage
+Step 3 — Delete PostgreSQL Pod, VERY IMPORTANT experiment, Run: "kubectl delete pod my-postgres-postgresql-0 -n dev"
+Step 4 — Observe Pod Recreation, "kubectl get pods -n dev -w" New Pod comes automatically
+Step 5 — Verify Data Persistence, Your DB data should STILL exist, This proves: storage survived Pod deletion, 
+MOST IMPORTANT CONCEPT, Pod died ❌, Storage survived ✔, That is: persistence
+Step 6 — Inspect PVC Details "kubectl describe pvc <pvc-name> -n dev"
+ Observe:, StorageClass, capacity, bound PV
+Step 7 — Inspect StorageClass, kubectl get storageclass, You’ll likely see Minikube default storage class.
+
+From above how to verify step 5 ? Verify DB data still exists after Pod deletion
+Step 1 — Insert Sample Data BEFORE deleting Pod
+ Connect to PostgreSQL Pod: "kubectl exec -it my-postgres-postgresql-0 -n dev -- bash"
+Step 2 — Login to PostgreSQL : psql -U myuser -d mydb
+Step 3 — Create Test Table
+ CREATE TABLE test_user ( id INT, name VARCHAR(50) );
+ Insert data: INSERT INTO test_user VALUES (1, 'vinay');
+ Verify:, SELECT * FROM test_user;
+ You should see: 1 | vinay
+Exit out od pod: "\q" or type "exit"
+Step 4 — Delete PostgreSQL Pod "kubectl delete pod my-postgres-postgresql-0 -n dev" 
+Step 5 — Wait for New Pod, "kubectl get pods -n dev -w" Wait until: Running
+Step 6 — Reconnect to PostgreSQL, "kubectl exec -it my-postgres-postgresql-0 -n dev -- bash". Then: "psql -U myuser -d mydb"
+Step 7 — Verify Data Still Exists. Run: "SELECT * FROM test_user;" If you still see: "1 | vinay" then:, PVC persistence is working
+
+Understand WHY StatefulSet Exists
+ Deployment works great for:, stateless apps, APIs, Spring Boot services BUT databases need: stable storage, stable hostname, stable Pod identity That’s why: StatefulSet exists
+ | Deployment           | StatefulSet      |
+| -------------------- | ---------------- |
+| random pod names     | stable pod names |
+| interchangeable pods | unique identity  |
+| stateless            | stateful         |
+| shared behavior      | ordered behavior |
+
+StatefulSet Guarantees
+ 1. Stable Pod Names, Example:, my-postgres-postgresql-0, my-postgres-postgresql-1, my-postgres-postgresql-2, These NEVER randomly change.
+ 2. Stable Network Identity, Each pod gets stable DNS, Example: my-postgres-postgresql-0.my-postgres-postgresql-headless, Used in:, PostgreSQL replication, Kafka, Elasticsearch, MongoDB
+ 3. Stable Storage, Each replica gets:, its own PVC, Example:, data-my-postgres-postgresql-0, data-my-postgres-postgresql-1, PVC stays even if Pod recreated
+ 4. Ordered Startup / Shutdown, StatefulSets start sequentially:, 0 → 1 → 2, Not parallel, Very important for DB clusters
+
+Real Production Example, PostgreSQL primary-replica cluster:, postgres-0 → primary, postgres-1 → replica, postgres-2 → replica Each has: own disk, own hostname, stable identity
+ IMPORTANT Experiment, Run: "kubectl get statefulset -n dev" You’ll see PostgreSQL StatefulSet, Inspect It, "kubectl describe statefulset my-postgres-postgresql -n dev"
+ Observe:, replicas, volumeClaimTemplates, service name, MOST IMPORTANT SECTION Look for:, volumeClaimTemplates:, This is what auto-creates PVCs per replica.
+
+KEY ARCHITECTURE UNDERSTANDING
+ Deployment: Pods are replaceable
+ StatefulSet: Each Pod has identity + storage
+ VERY IMPORTANT INTERVIEW QUESTION, Why not use Deployment for PostgreSQL?, 
+ Answer:, Deployment Pods are interchangeable and ephemeral, Databases need:, stable identity, stable storage, ordered startup, predictable networking, Hence StatefulSet.
+
+cmd : "kubectl get statefulset my-postgres-postgresql -n dev -o yaml"
+
+Conclusion : 
+Whenever I scale my stateful set (ex : 2 replicas) then 2 postgres pods will get created and for the same 2 corresponding pvc will get created. 
+Let us say pod 1 -> pvc 1 , pod 2 -> pvc 2 got created data of pvc 1 will be duplicated/replicated in pvc 2.
+Imp to note that we have 2 postgres pods/pvc does not imply that both stores different data.
+If we scale down replicas to 1 then 2ndly created pod/pvc will go down.
+Data Persists After Pod Deletion, Even if Pod is deleted:, PVC survives, data survives, new Pod reattaches same storage. This is:, persistence
+Always pod0/pvc0 will e considered as primary(This is from rostgres inbuilt platform chart) and if this goes down then pod1/pvc1 can be promoted as primary.
+Replicas are application-level replication, NOT Kubernetes replication, This is extremely important, Kubernetes does NOT duplicate DB data automatically, Instead:, PostgreSQL itself replicates data
+Ordered startup is CRITICAL in distributed systems, This is much deeper than “pods start in order”, Why?, Because replicas depend on primary availability, Example:, postgres-1 cannot replicate, until postgres-0 is available, That’s why:, startup ordering matters
+Scaling StatefulSets is NOT same as scaling Deployments, Deployment scaling: more identical app instances. StatefulSet scaling: more distributed-system members
+Pods are ephemeral(temporary / short-lived), but storage persists. 
+
+*******************************************************************
+
+Helm Dependencies : This is extremely common in real projects.
+Problem Helm Dependencies Solve : Today you deploy: Spring Boot Chart, PostgreSQL Chart, separately:
+ helm install my-postgres ...
+ helm install my-docktest-app ...
+ Two commands, Two releases, Two upgrade processes.
+
+Real Production Approach, Package everything together: my-docktest-app , PostgreSQL dependency,
+ Now: helm install my-docktest-app deploys: Spring Boot, PostgreSQL, Services, Secrets, PVCs, in one shot.
+
+Chart Structure
+my-docktest-app/
+|
+├── Chart.yaml
+├── values.yaml
+├── templates/
+
+Add Dependency in Chart.yaml
+
+Example:
+apiVersion: v2
+name: my-docktest-app
+version: 0.1.0
+
+dependencies:
+  - name: postgresql
+    version: "16.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+	
+Download Dependencies
+Run: "helm dependency update"
+
+This creates:
+charts/
+   postgresql-16.x.x.tgz
+   
+What Happens During Install, When you run: "helm install my-docktest-app"  Helm deploys: Parent Chart + PostgreSQL Chart automatically.
+
+Overriding PostgreSQL Values Inside your parent values.yaml: These values get passed to the Bitnami PostgreSQL chart.
+
+postgresql:
+  auth:
+    username: postgres
+    password: admin
+    database: mydb
+  primary:
+    persistence:
+      enabled: true
+      size: 8Gi   
+	  
+Why Companies Use Dependencies
+ Without dependencies: App team deploys app, DB team deploys DB
+ With dependencies: One chart, One release, One upgrade path, Much easier for development and testing environments.
+ 
+Important Limitation
+In large production environments: Application, Database, are often deployed separately
+Reason:, Database lifecycle ≠ Application lifecycle, You don't want a database accidentally affected during an application upgrade.
+ 
+As part of this learning :
+Step 1 : Add Bitnami PostgreSQL dependency to Chart.yaml
+dependencies:
+  - name: postgresql
+    version: "16.x.x"
+    repository: "https://charts.bitnami.com/bitnami"
+	
+Step 2 Run:, "helm dependency update"
+Step 3 Inspect: on Windows "dir charts"
+Step 4, Run: "helm template . -n dev" Observe how both: Spring Boot manifests, PostgreSQL manifests, are rendered together.
+
+What you should learn from this topic, Not the syntax.
+The concept: Helm Dependency = Chart within a Chart, Exactly like Maven dependencies: Spring Boot App + spring-data-jpa + postgresql driver, 
+except Helm dependencies package Kubernetes applications instead of Java libraries.
+	  
+***************************************************************************************************
+
+CI / CD for for kubernetes
+
+Without CI/CD:
+Developer-> Build JAR manually -> Build Docker manually -> Push Docker manually -> Run Helm manually -> Deploy manually.
+Problems: Human mistakes,Slow deployments,No standard process,No audit trail.
+
+CI/CD automates this : Git Push → Pipeline Starts → Build → Test → Package → Deploy.
+
+What is CI? 
+Focus on Code Quality 
+Responsibilities : Compile code, Run tests, Build artifact, Build docker image.
+Example : Java Code → mvn clean install → Unit Tests → Build Docker Image. and Output: Docker image
+
+What is CD? CD = Continuous Delivery / Deployment
+Focus: Deploying application
+Responsibilities:Deploy Helm Chart -> Upgrade Kubernetes ->Rollback if needed
+Output: Running Application
+
+Typical Kubernetes CI/CD Flow
+Developer → Git Commit → CI Pipeline → Build JAR → Run Tests → Build Docker Image → Push Image Registry → CD Pipeline → Deploy Helm Chart → Kubernetes.
+
+What is Image Registry?
+ After Docker image is built:
+ "dock-test:v5" It must be stored somewhere that place is docker registry, 
+ Examples: Docker Hub, Amazon Elastic Container Registry, Google Artifact Registry, Azure Container Registry.
+
+What changes in Helm?
+Suppose current image tag is v3, Pipeline builds v4, Pipeline updates image tag from v3 to v4, Then deploys.
+
+What is the biggest production concept?, The developer does NOT deploy source code, The developer deploys Docker Images, Kubernetes never sees your Java code,
+Kubernetes only sees Docker Images.
+
+Real Example Using Your Project
+Git Repo → Spring Boot Code -> You commit changes.
+Pipeline does: : mvn clean package → dock-test.jar → docker build → dock-test:v4 → push registry.
+Now CD begins: Update Helm values → image.tag=v4 → helm upgrade → Kubernetes.
+Result: New Pods, Running v4.
+
+Conclusion A production Kubernetes deployment usually follows:
+Git → CI → Build JAR → Build Docker Image → Push Registry → CD → Helm Upgrade → Kubernetes.
+
+
+*********************************************************************************************************
+
+What is Jenkins?
+
+before Jenkins : Developer → mvn clean package → docker build → docker push → helm upgrade.  (Everything is manual)
+Problems :Human mistakes, Different processes, No audit trail, Slow releases.
+
+Jenkins automates this: Git Push → Jenkins → Build → Test → Docker Build → Deploy.
+
+Jenkins Architecture
+Old Terminology:
+Jenkins Master 
+      ↓
+Jenkins Agent 
+
+Current Terminology
+Jenkins Controller
+      ↓
+Jenkins Agents
+
+Developer → Git → Jenkins Controller → Triggers Job → Agent Executes Work.
+Developer pushes code to Git, Jenkins Controller detects the change and triggers a job, and the Jenkins Agent executes the actual build work.
+
+Ex :
+Agent 1
+   mvn clean package
+Agent 2
+   docker build
+Agent 3
+   helm upgrade
+
+What is a Pipeline? - Series of automated steps
+Example : Checkout Code → Build → Test → Build Docker Image → Push Docker Image → Deploy.
+
+Jenkinsfile? - Pipeline as Code
+Instead of configuring jobs manually through UI, we store pipeline definition in Git.
+Conceptually :
+Stage 1 :  Checkout
+Stage 2 :  Build
+Stage 3 :  Test
+Stage 4 :  Docker Build
+Stage 5 :  Deploy
+
+Application Pipeline : 
+Let's use your Spring Boot app 
+Current manual process: Code Change → mvn clean package → docker build → docker push → helm upgrade.
+Jenkins automates: Git Commit → Jenkins Trigger → Build JAR → Run Tests → Build Docker Image → Push Image → Deploy.
+
+Real Production Example : Suppose you change:
+@GetMapping("/version")
+public String version() {
+   return "v4";
+}
+
+Then: "git push"
+
+Jenkins automatically: Pull code → Build JAR → Run tests → Build image → Push image → Deploy.  (No human intervention)
+
+Most Important Jenkins Concepts
+| Concept     | Meaning                          |
+| ----------- | -------------------------------- |
+| Job         | A unit of work                   |
+| Pipeline    | Sequence of stages               |
+| Stage       | Build/Test/Deploy step           |
+| Jenkinsfile | Pipeline definition              |
+| Controller  | Orchestrates jobs                |
+| Agent       | Executes jobs                    |
+| Trigger     | Starts pipeline                  |
+| Workspace   | Folder where code is checked out |
+
+How Jenkins Fits With Kubernetes
+Traditional : Git → Jenkins → helm upgrade → Kubernetes.
+Modern : Git → Jenkins → Build Docker Image → Update GitOps Repo → ArgoCD → Kubernetes.
+This difference is the key thing you'll appreciate once we get to ArgoCD.
+
+
+************************************
+
+Building a real Jenkins pipeline for your Spring Boot application
+GitHub → Jenkins → Maven Build → Docker Build → Docker Hub Push → Helm Upgrade.
+
+Goal : Understand CI/CD NOT Become a Jenkins Administrator
+GitHub → Jenkins (Local) → Maven Build → Docker Build → Docker Push → Helm Upgrade → Minikube.
+This is exactly how many teams worked before GitOps became popular.
+
+Before installing Jenkins locally, understand what it needs to execute your pipeline. Your pipeline will run commands such as `mvn clean package`, `docker build`, `docker push`, 
+and `helm upgrade`. Therefore, Jenkins must have access to Java, Maven, Docker, Helm, and kubectl.
+
+----
+
+Installing Jenkins locally :
+Simplest Installation Method - Use docker 
+We use this approach because it provides easy cleanup, easy upgrades, and follows industry-standard practices.
+
+Architecture : Laptop → Docker Desktop → Jenkins Container.
+
+Step 1 : Check if docker is installed/version - "docker --version"
+
+Step 2 : Pull Jenkins Image - "docker pull jenkins/jenkins:lts"
+
+Step 3 : Start Jenkins
+
+docker run -d ^
+--name jenkins ^
+-p 8080:8080 ^
+-p 50000:50000 ^
+jenkins/jenkins:lts
+
+Step4 : Verify Container - "docker ps" - Verify if you see jenkins image
+
+Step 5 : Open Jenkins in browser - "http://localhost:8080"
+
+Step 6 : Get initial pwd - "docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword"
+Copy password Paste into Jenkins UI in browser -> ex : "8347e2b1f1b5441c9c915711f8b83ce5"
+
+Step 6 : "Complete Setup Wizard
+Choose: Install Suggested Plugins".
+
+Step 7 : Create Admin User
+
+Example:
+Username: admin
+Password: ********
+
+Now you should be able to see Jenkins homepage
+
+Step 8 : 
+Pull Jenkins Image
+
+
+After Jenkins opens successfully, we will learn the key Jenkins concepts inside the UI, including Jobs, Pipelines, Build History, Workspace, and Credentials.
+
+Then, create your first pipeline that pulls code from GitHub, checks out the source code, and builds the Spring Boot application. Initially, the pipeline will perform only a Maven build. We will not use Docker or Helm yet and will add those capabilities incrementally.
+After this step you should be able to answer:
+What is Jenkins?
+How does Jenkins run a pipeline?
+Where does pipeline execution happen?
+How do I access Jenkins?
+
+-----
+
+Let's underwstand about jenkins UI :
+
+When you login you'll see: 
+1.Dashboard : This is the Jenkins home page. It displays your Jobs, Build History, and Nodes.
+Think : Dashboard = Control Center
+
+2. Job : A Job is a unit of work in Jenkins. Examples include building a Spring Boot application, deploying a Kubernetes application, or running tests. In modern Jenkins environments,
+ the most commonly used type is a Pipeline Job.
+ 
+3. Build : Every pipeline execution is called a Build. For example, Build #1, Build #2, and Build #3. 
+This is similar to Helm revisions, where each execution gets a unique number and history is maintained for tracking and troubleshooting.
+ 
+4. Build History : is a record of previous pipeline executions that Jenkins stores. For example, Build #1 may be successful, Build #2 may fail, and Build #3 may succeed. 
+This history is extremely useful for troubleshooting, tracking changes, and identifying when issues were introduced.
+ 
+5. Console Output : is the most important screen in Jenkins. It shows the detailed execution logs for every step, including Git clone operations, Maven builds, Docker builds, Helm commands,
+and any errors encountered. Whenever a build fails, the first place to check is the Console Output, as it usually contains the exact cause of the failure.
+
+6. A Workspace : is the folder where Jenkins downloads and works with your source code. For example, Jenkins clones your GitHub repository into the workspace and then runs commands 
+such as `mvn clean package` from that location. You can think of the workspace as a temporary working directory used during pipeline execution.
+
+7. Nodes :are the machines where Jenkins jobs execute. You can view them by navigating to **Manage Jenkins → Nodes**. 
+You should see a **Built-In Node**, which is where your jobs currently run. Since you are learning Jenkins locally, the Controller and Agent are running on the same machine, 
+so all job execution happens on the built-in node.
+
+8. Credentials : allow Jenkins to securely store sensitive information such as Git passwords, Docker passwords, JFrog tokens, and kubeconfig files.
+ In production environments, these values are never stored directly inside the Jenkinsfile. Instead, Jenkins manages them through its Credentials store. 
+ Later, you will use Credentials for tasks such as Docker Hub authentication and GitHub access.
+
+-------
+
+What We Will Build Next - First pipeline:
+GitHub → Checkout Code → mvn clean package.
+lets go step by step : For now Only Maven , No Docker, No Helm,No Kubernetes.
+
+Before creating a pipeline, verify that Jenkins can execute commands correctly. Go to **Manage Jenkins → System Information** and look for **java.version**.
+ You should see a valid Java version listed, which confirms that Java is available to Jenkins.
+
+Our future pipeline will execute commands such as `mvn clean package`, `docker build`, `docker push`, and `helm upgrade`.
+ A common question is whether the Jenkins container already includes Maven, Docker CLI, Helm, and kubectl. The answer is no.
+ The default Jenkins image typically contains only Java and Jenkins itself. Additional tools such as Maven, Docker CLI, Helm, and kubectl must be installed or provided separately 
+before Jenkins can use them in pipelines.
+
+Production Approach
+
+Jenkins Controller
+      ↓
+Jenkins Agent
+      ↓
+Build Executes Here
+
+Agents are preconfigured with: Java,Maven,Docker,Helm,kubectl
+
+For learning purposes, we have two options. 
+
+Option A :The recommended approach is to use Jenkins only to understand pipelines first. In this approach, you start with a simple pipeline that runs a Hello World example, 
+performs a Git checkout, and then executes a Maven build. Once you are comfortable with pipeline concepts, we can move on to understanding Jenkins agents and more advanced setups.
+
+Option B is to immediately configure Jenkins with all the tools required for a complete CI/CD pipeline, including Maven, Docker, Helm, and kubectl. 
+This approach is closer to a real-world production setup because Jenkins can build, package, containerize, and deploy applications. However, it requires significantly 
+more initial configuration and setup compared to starting with basic pipeline concepts.
+
+My recommendation is to focus on understanding CI/CD rather than becoming a Jenkins administrator.
+
+
+-----
+
+Lets go with Option A :
+Step 1: Learn how to perform a Git checkout from your repository.
+Step 2: Add a Maven build stage to compile and package your application.
+Step 3: Add a Docker build stage to create a container image.
+Step 4: Add a Helm deployment stage to deploy the application to Kubernetes.
+By progressing gradually, you'll understand each part of the CI/CD pipeline before moving to the next.
+
+Let us setup real CI pipeline :
+Goal of This Step :We want Jenkins to: GitHub -> Checkout Source Code -> Build Spring Boot App
+Equivalent manual commands: git clone <repo> ->  cd project -> mvn clean package
+
+

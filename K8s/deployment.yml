@@ -2,11 +2,11 @@ apiVersion: apps/v1
 kind: Deployment
 
 metadata:
-  name: dock-test-k8s
+  name: dock-test-k8s #The name of this Deployment inside the Kubernetes cluster.
   namespace: dev
 
 spec:
-  replicas: 2
+  replicas: 4
 
   selector:
     matchLabels:
@@ -22,23 +22,11 @@ spec:
         - name: dock-test-k8s # Create a container inside the Pod and give that container the name dock-test-k8s
           image: vinayakwarad/dock-test:v1 #Image from my docker account
           imagePullPolicy: Always
-
           ports:
             - containerPort: 8080
-#          env:                                       # Connecting deployment yml to config yml properties
-#            - name: APP_ENV
-#              valueFrom:
-#                configMapKeyRef:
-#                  name: dock-test
-#                  key: APP_ENV                       #Pasiing only one key, But if we want multiple props this step should be repeated
-          volumeMounts:
-          - name: config-volume
-            mountPath: /config
-      volumes:
-        - name: config-volume
-          configMap:
-            name: dock-test
-
+          envFrom:
+            - configMapRef:
+                name: my-config-file
 # kubectl apply -f deployment.yml -dev
 # D:\dockTest\K8s>kubectl get deployments -n dev
 # NAME            READY   UP-TO-DATE   AVAILABLE   AGE

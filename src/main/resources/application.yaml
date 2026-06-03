@@ -1,5 +1,12 @@
 spring:
   application:
     name: dockTest
-
-APP_ENV : DEV
+  datasource:
+    url: ${DB_URL}
+    username: ${DB_USERNAME}
+    password: ${DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+server:
+  port: 8081
+APP_ENV: DEV
+DB_USERNAME: LocalAppPropFileDbUN

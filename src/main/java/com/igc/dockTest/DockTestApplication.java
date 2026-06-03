@@ -13,11 +13,13 @@ public class DockTestApplication {
 @Value("${APP_ENV:dev}")
 private String env;
 
+@Value("${DB_USERNAME:testUser}")
+private String user;
+
 	@GetMapping("/welcome")
 	public String test(){
-		return "Welcome to docker--"+env+"--environment";
+		return "Welcome to docker "+env+" environment"+" "+"with DB user -"+" "+user;
 	}
-
 
 	public static void main(String[] args) {
 		SpringApplication.run(DockTestApplication.class, args);

@@ -1,0 +1,19 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: my-config-file
+  namespace: dev
+
+#data:
+# application.properties: |      # Create a file named application.properties with multiline content which will be used for volume mount
+
+data:
+  APP_ENV: "VeryLatestConfig"
+  APP_MESSAGE: "Hello from Kubernetes"
+  SERVER_PORT: "8080"
+  DB_URL: "jdbc:postgresql://my-postgres-postgresql:5432/mydb"
+
+# kubectl apply -f configmap.yml
+# kubectl get configmap -n dev
+# kubectl describe configmap springboot-config -n dev

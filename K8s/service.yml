@@ -13,7 +13,8 @@ spec:
       port: 80               #Service receives req on 80
       targetPort: 8080     #Above received request will be Forwards to pod/container on 8080
 
-  type: NodePort #Exposes application outside the cluster
+  #type: NodePort #Exposes application outside the cluster but If we want to expose ingress then comment this line and uncomment below
+  type: ClusterIP
 
 #kubectl apply -f service.yml -n dev
 #A Service provides:

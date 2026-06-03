@@ -1,0 +1,1733 @@
+1. Ways of applying configs(Property values) to our containers in cluster
+2. Ways of applying secrets
+3. Useful Commands
+4.What is statefulset?
+
+
+
+
+
+*****************************************************************
+
+2. Then Restart Pods : kubectl rollout restart deployment my-docktest-app -n dev 
+3. Verify Inside Pod : >kubectl exec -it <pod> -n dev -- sh
+   >printenv APP_ENV
+
+**********************
+Core k8's objects
+
+| Kubernetes Object | Purpose                              |
+| ----------------- | ------------------------------------ |
+| Pod               | Smallest deployable unit             |
+| Deployment        | Manages replicas and rolling updates |
+| Service           | Exposes pods internally              |
+| Ingress           | External HTTP routing                |
+| ConfigMap         | Externalized configs                 |
+| Secret            | Passwords/tokens                     |
+| Namespace         | Logical isolation                    |
+| HPA               | Auto scaling                         |
+| StatefulSet       | Stateful apps like DB/Kafka          |
+| PVC/PV            | Persistent storage                   |
+
+----------------------------------
+| Concept   | Meaning                  |
+| --------- | ------------------------ |
+| Cluster   | Entire Kubernetes system |
+| Node      | One machine/server       |
+| Pod       | Smallest deployable unit |
+| Container | Actual app runtime       |
+
+
+********************************************
+
+
+
+
+What is namespace ?
+In Kubernetes, a Namespace is a logical partition inside a Kubernetes cluster used to organize and isolate resources.Think of it like folders inside one cluster.
+
+Why Namespaces Are Needed?
+Imagine one Kubernetes cluster is used by:Dev team,QA team,Production apps,Monitoring tools,Camunda platform
+
+Without namespaces:Everything mixes together,Same app names may conflict,Hard to manage permissions
+
+Namespaces solve this.
+Kubernetes Cluster
+│
+├── Namespace: dev
+│      ├── myapp pods
+│      ├── services
+│
+├── Namespace: qa
+│      ├── myapp pods
+│
+├── Namespace: prod
+│      ├── myapp pods
+│
+├── Namespace: camunda
+│      ├── zeebe
+│      ├── operate
+│      ├── tasklist
+│
+└── Namespace: monitoring
+       ├── prometheus
+       ├── grafana
+
+You can have same deployment names in different namespaces:
+dev/myapp
+prod/myapp
+
+If you don’t specify namespace: 
+kubectl get pods -> Output will be from default namespace -> default
+
+Get list of namespaces -> kubectl get namespaces OR kubectl get ns
+NAME              STATUS
+default           Active
+kube-system       Active
+kube-public       Active
+kube-node-lease   Active
+
+To create new namespace -> "kubectl create namespace dev"
+
+Deploying our app into specific namespace without using deployment yml file : "kubectl create deployment myapp --image=vinayakwarad/dock-test:latest -n dev"
+
+Deleting namespace -> "kubectl delete namespace dev" -> This deletes EVERYTHING inside it: pods,services,deployments,configs.
+
+In real companies typical name spaces will be : dev,sit,uat,prod,camunda,monitoring,ingress,logging.
+
+Namespace vs Cluster
+Cluster:Actual Kubernetes environment.
+Namespace :Logical separation INSIDE cluster.
+
+****************************************
+How to delete everything inside your dev namespace in Kubernetes:
+
+kubectl delete all --all -n dev
+kubectl delete configmap --all -n dev
+kubectl delete secret --all -n dev
+kubectl delete pvc --all -n dev
+kubectl delete ingress --all -n dev
+
+OR
+If you also want to delete the namespace itself and recreate it: Faster 
+Deletion "kubectl delete namespace dev"
+Verify deletion : kubectl get all -n dev
+Recreation : kubectl create namespace dev
+
+********************************************************************
+
+MINIKUBE
+
+- Why Minikube?
+
+Without Minikube:
+Docker can only run containers manually
+
+With Minikube:
+You can learn real Kubernetes concepts:
+Pods
+Deployments
+Services
+Scaling
+Rolling updates
+HPA
+Minikube gives you a real local K8s cluster.
+----------
+- Install minikube/- Setup Minikube in local and create pod of it
+winget install Kubernetes.minikube
+minikube version (Verification)
+
+- Start minikube 
+minikube start --driver=docker (This command starts a local Kubernetes cluster using Minikube and tells it to use Docker as the runtime/VM driver.)
+Instead of creating a VM using VirtualBox/Hyper-V, run Kubernetes nodes as Docker containers.”
+
+What happens internally when we run above cmd
+Check Docker is installed and running
+Pull required Kubernetes images
+Create a special Docker container called something like: minikube
+Inside that container, it sets up: kubelet,API server,etcd,scheduler,controller manager
+Configures kubectl automatically to talk to this cluster
+--------
+Your setup becomes:
+Windows Laptop
+│
+├── Docker Desktop
+│    └── Minikube Container
+│          └── Kubernetes Cluster
+│                └── Pods
+│                     └── Your Spring Boot App
+
+Why Docker Driver is Popular
+Earlier Minikube mostly used VMs like: VirtualBox,Hyper-V,VMware
+Now Docker driver is preferred because:Faster startup,Less RAM usage,Easier setup,No separate VM software needed.
+
+- Verify minikube started correctly : 
+kubectl get nodes
+
+Expected :
+NAME       STATUS   ROLES           AGE   VERSION
+minikube   Ready    control-plane   ...
+
+Useful commands :
+Check Minikube status : minikube status
+Stop cluster : minikube stop
+Delete cluster completely : minikube delete
+Open Kubernetes dashboard : minikube dashboard
+-------------------
+Steps to over come Minikube not starting correctly
+
+If minikube dont start correctly then follow below steps :
+minikube stop
+minikube delete --all
+minikube cache delete
+minikube start --driver=docker --memory=4096 --cpus=2
+
+------------------
+
+If I want to stop above setup completely
+
+"minikube stop"  -> This stops VM/container and frees RAM/CPU.
+OR
+"minikube delete" -> Completely Delete Cluster,Deletes everything:,cluster,pods,services,images inside cluster
+OR
+Completely Close docker destop -> This stops:containers,Kubernetes,Docker engine and frees RAM/CPU.
+OR 
+Optional but good practice
+kubectl delete namespace dev -> This deletes:deployments,pods,services inside dev.
+Verify Nothing Running using cmd which should be empty -> "docker ps"
+GetKubernetes Pods -> "kubectl get pods --all-namespaces" -> May fail if cluster stopped — that is fine.
+
+*****************
+KUBECTL
+- What is kubectl? How to install it and check if it is installed correctly or not?
+winget install -e --id Kubernetes.kubectl
+kubectl version --client (To verify if kubectl is installed correctly or not)
+
+**************************
+NAMESPACE :
+
+ Namespaces are used to logically separate resources inside the same Kubernetes cluster.
+This is the one that helps us to differentiate environments 
+
+Why namespace exists ?
+Imagine one Kubernetes cluster used by multiple teams/apps:
+Team A → Spring Boot app
+Team B → Camunda
+Team C → Monitoring tools
+Without namespaces: everything mixes together,naming conflicts happen,management becomes difficult --> Namespaces solve this.
+Real World Example -> dev namespace,qa namespace,prod namespace,camunda namespace,monitoring namespace
+
+Commands :
+Create Namespace -> "kubectl create namespace dev"
+List Namespaces -> "kubectl get namespaces" OR "kubectl get ns"
+Deploy Into Namespace -> "kubectl apply -f deployment.yml -n dev"
+kubectl get pods in dev-> "kubectl get pods -n dev"
+View Everything In Namespace -> "kubectl get all -n dev"
+
+
+How to set default namespace ? Avoid typing -n dev repeatedly.
+Whenever you have multiple namespaces and you want t o avoid typing your namespace explicitly everytime
+"kubectl config set-context --current --namespace=dev"
+namespace caan also be set in deployment yml
+
+******************************************
+
+ConfigMap :
+A ConfigMap is used to store external configuration for applications.
+Instead of hardcoding values inside your Spring Boot app or Docker image, Kubernetes injects configuration dynamically.
+
+Why ConfigMap Is Needed ?
+ Without ConfigMap -> spring.datasource.url=jdbc:mysql://dev-db:3306/test -> is hardcoded inside app.
+ problem : different values needed for dev/qa/prod, image rebuild required for every environment,not flexible
+ ConfigMap solves this.
+ 
+ What ConfigMap Stores -> environment variables,URLs,application properties,feature flags,ports,non-sensitive configs
+ Examples : DB_HOST, DB_PORT,APP_ENV,LOG_LEVEL,API_URL
+ 
+ Important Rule : ConfigMap is for NON-sensitive data.Do NOT store ->passwords,API secrets,tokens
+Sensitive data goes into "Secret" which we will learn later
+
+Approach 1 : 
+---------------
+configmap.yml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: dock-test-config
+  namespace: dev
+
+data:
+  APP_ENV: dev
+  APP_NAME: dock-test-app
+  LOG_LEVEL: DEBUG
+------------
+Using ConfigMap In Deployment :
+Now connect ConfigMap to container.
+
+Update deployment.yml :
+spec:
+  containers:
+    - name: dock-test-container
+      image: vinayakwarad/dock-test
+
+      env:
+        - name: APP_ENV
+          valueFrom:
+            configMapKeyRef:
+              name: dock-test-config
+              key: APP_ENV             
+-----------			  
+What Happens now -> Kubernetes injects -> APP_ENV=dev into container and Your Spring Boot app can read it.
+
+Reading it in our springboot application :
+@Value("${APP_ENV}")
+private String env;		
+
+
+----------------------------------------
+
+Approach 2 : Better Approach — Load Entire ConfigMap
+Instead of one-by-one variables, Lets load whole config map variables at once
+VIP : Whenever you use this approach properties will be read as environment variables
+----
+configmap.yml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: dock-test-config
+  namespace: dev
+
+data:
+  APP_ENV: dev
+  LOG_LEVEL: DEBUG
+
+------
+
+deployment.yml
+spec:
+  containers:
+    - name: dock-test-container
+      image: vinayakwarad/dock-test:latest
+
+      envFrom:
+        - configMapRef:
+            name: dock-test-config
+
+------
+
+Now Verify Variables Inside Pod -> 
+kubectl get pods -n dev
+"kubectl exec -it <pod-name> -n dev -- sh" -> Enters pod			
+"printenv"-> inside container run this command
+You will see: APP_ENV=dev , LOG_LEVEL=DEBUG
+end of approach 2
+
+-----
+What problem did config map solved ?
+Same Docker Image "dock-test:latest" for all environments and we have to apply configmap file for each required environment as per requirement.
+
+**************************************************************************************
+
+Approach 3 : File Mount Style
+
+Instead of injecting individual environment variables, Kubernetes can mount an entire file from ConfigMap into the container filesystem.
+Very common for:application.properties,application.yml,nginx.conf,logback.xml,custom configs
+Without ConfigMap mounting: Your config file exists INSIDE Docker imag so changing config requires rebuilding image which is a problem.
+With file mount style approach :  ConfigMap -> Mounted into container -> application.properties  (No image rebuild needed.)
+
+Steps to follow to acheieve this approach :
+
+Step 1 : configmap.yml
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: dock-test-config
+  namespace: dev
+
+data:
+  application.properties: |                     # Create a file named application.properties with multiline content
+    server.port=8080
+    app.message=Hello from Kubernetes
+
+
+Step 2 : Apply ConfigMap
+kubectl apply -f configmap.yml
+
+Step 3 — Mount ConfigMap Into Pod -> Update deployment:
+spec:
+  containers:
+    - name: dock-test-container
+      image: vinayakwarad/dock-test
+
+      volumeMounts:
+        - name: config-volume
+          mountPath: /config
+
+  volumes:
+    - name: config-volume
+      configMap:
+        name: springboot-config
+		
+# What ahppens now ? Kubernetes creates file: /config/application.properties inside container and Content comes from ConfigMap.		
+
+****VIP**** Whenever you have changes in your config file it is recommended to "restart our deployment" after applying the config map - As most applications 
+ead config only during startup and do not continuously watch files
+Best practice in realtime projects run below commands- Safe and predictable:
+"kubectl apply -f configmap.yml -n dev"
+"kubectl rollout restart deployment dock-test-deployment -n dev"
+
+Step 4 : Verification
+
+Enter pod : kubectl exec -it <pod-name> -n dev -- sh
+Check file: cd /config
+               ls
+               cat application.properties
+You will see:
+server.port=8080
+app.message=Hello from Kubernetes
+
+- How Springboot uses it? 
+As environment variable :--
+env:
+  - name: SPRING_CONFIG_LOCATION
+    value: /config/application.properties			
+
+Note : kubectl rollout restart does NOT recreate deployment object. It simply - terminates old podsterminates old pods, creates new pods using same deployment config.	
+
+---------------------
+
+Real world architecture :
+Deployment
+   ↓
+Pod
+   ↓
+Container
+   ↓
+Reads ConfigMap values
+******************************************
+
+SECRETS
+
+SECRETS :
+
+| ConfigMap            | Secret              |
+| -------------------- | ------------------- |
+| Non-sensitive config | Sensitive data      |
+| Plain text           | Base64 encoded      |
+| app.properties       | passwords/tokens    |
+| public configs       | private credentials |
+
+* Real applications need: DB passwords,API keys,tokens,certificates,client secrets and these should NOT be stored in plain ConfigMaps.
+So Secret was introduced to store sensitive information Examples:database password,JWT secret,OAuth credentials,SSL certificates
+
+1. Secret : You can apply secret using base64 encoding but this is mostly for local development.
+2. You can also create secret.yml and apply it
+3. Isn’t Plain Text Secret Dangerous?
+Correct.
+So in Git repositories:
+teams usually DO NOT commit real passwords directly
+or use encrypted secret systems
+
+4. So Real Enterprise Solutions to solve above problem?
+(A)Helm Values 
+Ex : 
+secrets:
+ dbPassword: xxx   #Injected dynamically during deployment.
+
+(B) External Secret Managers
+
+Most production companies use:
+HashiCorp Vault,Amazon Web Services Secrets Manager,Microsoft Azure Key Vault,Google Secret Manager
+Kubernetes fetches secrets dynamically.
+
+(C) Sealed Secrets
+Popular Kubernetes pattern.
+You commit: encrypted secret YAML to Git safely. Controller decrypts inside cluster.
+
+Conclusion : In our case lets create secret.yml and apply the same for our demo at this stage.
+kubectl apply -f secret.yml
+
+********************************************
+
+Persistent volumes :
+
+In Kubernetes, Persistent Volumes (PV) solve one major problem:
+
+Containers are temporary - If a pod dies/restarts: container filesystem may be lost,uploaded files disappear,database data vanishes and Persistent storage solves this.
+
+Why Persistent Volume Is Needed?
+Suppose: your app stores files,PostgreSQL stores database data,Camunda stores workflow data and If pod restarts: then without persistent storage = data loss
+
+Kubernetes Storage Architecture
+
+There are 3 important concepts:
+
+| Component       | Purpose                      |
+| --------------- | ---------------------------- |
+| PV              | Actual storage               |
+| PVC             | Request/claim for storage    |
+| Pod volumeMount | Mount storage into container |
+
+Simple analogy 
+
+| Kubernetes | Real World          |
+| ---------- | ------------------- |
+| PV         | Hard disk           |
+| PVC        | Request for disk    |
+| Pod        | Computer using disk |
+
+
+***************************************
+
+
+Ingress controller :
+
+Service exposes application inside/outside cluster
+Ingress provides smart HTTP routing
+Ingress Controller actually performs the routing
+
+Problem Before Ingress
+Suppose you have 3 applications:
+| App             | Service           |
+| --------------- | ----------------- |
+| Spring Boot App | `app-service`     |
+| Camunda         | `camunda-service` |
+| Admin UI        | `admin-service`   |
+Without Ingress: Each app needs separate NodePort/LoadBalancer and many external ports become messy
+
+Example: Hard to manage.
+192.168.49.2:31245
+192.168.49.2:31771
+192.168.49.2:30123
+
+What Ingress Solves : Ingress provides single entry point for multiple services
+
+Like:
+myapp.com         → Spring Boot
+camunda.myapp.com → Camunda
+admin.myapp.com   → Admin UI
+
+or:
+/api      → Spring Boot
+/camunda  → Camunda
+/admin    → Admin UI
+
+Architecture :
+
+Internet
+   ↓
+Ingress Controller
+   ↓
+Ingress Rules
+   ↓
+Kubernetes Services
+   ↓
+Pods
+
+VERY IMPORTANT
+Ingress ≠ Actual Router
+Ingress resource is only:routing rules/configuration
+Actual traffic handling is done by:Ingress Controller
+
+Think Like This
+| Component          | Analogy        |
+| ------------------ | -------------- |
+| Ingress            | Traffic rules  |
+| Ingress Controller | Traffic police |
+| Service            | Internal road  |
+| Pod                | Building/app   |
+
+Popular Ingress Controllers
+
+Most common:
+NGINX Ingress Controller (Best for learning)
+Traefik
+HAProxy
+
+- How to enable ingress in Minikube?
+
+cmd : "minikube addons enable ingress"
+This installs: NGINX ingress controller,required resources
+Verify : "kubectl get pods -n ingress-nginx" Expected : "ingress-nginx-controller" - Running
+
+Your Existing Setup
+
+Currently: NodePort Service -directly exposes app.
+With Ingress: Ingress becomes external entry point
+
+Usually service changes to:
+type: ClusterIP
+because Ingress handles external traffic.
+
+Your service yml now becomes :
+
+- service.yml 
+apiVersion: v1
+kind: Service
+
+metadata:
+  name: dock-test-k8s
+
+spec:
+  selector:
+    app: dock-test-k8s
+
+  ports:
+    - port: 80
+      targetPort: 8080
+
+  type: ClusterIP
+
+- Ingress.yml
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+
+metadata:
+  name: dock-test-ingress
+  namespace: dev
+spec:
+  rules:
+    - host: docktest.local
+
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+
+            backend:
+              service:
+                name: dock-test-k8s
+
+                port:
+                  number: 80
+What This Means
+Request to docktest.local
+   ↓
+Ingress Controller
+   ↓
+Service dock-test-k8s
+   ↓
+Pod:8080
+
+- How To Access Ingress Locally
+
+#Prereq to apply this file :
+# Complete ingress setup in local
+#Enable Ingress Controller : "minikube addons enable ingress" - This installs NGINX Ingress Controller
+
+#Verify Controller Running : "kubectl get pods -n ingress-nginx"
+# Expected from above step : ingress-nginx-controller - Running
+
+# In service file type should be clusterIp type: ClusterIP
+# Then apply : "kubectl apply -f service.yml"
+# Then apply : kubectl apply -f deployment.yml
+# Then apply : kubectl apply -f ingress.yml
+#Verify ingress : "kubectl get ingress -n dev"
+#Expected
+#  NAME                 CLASS   HOSTS
+#dock-test-ingress    nginx   docktest.local
+# Run cmd : "minikube tunnel"
+#Add hosts File Entry in path : C:\Windows\System32\drivers\etc\hosts
+#127.0.0.1 docktest.local
+# Access application using "http://docktest.local/welcome"
+#Note : Here docktest.local is our ingress entry point for our application
+
+Why Ingress Is Powerful (Very common in enterprise clusters.)
+One external IP can route many apps.
+| URL        | Destination |
+| ---------- | ----------- |
+| `/api`     | Spring Boot |
+| `/camunda` | Camunda     |
+| `/grafana` | Grafana     |
+
+Difference Between Service and Ingress
+| Service                  | Ingress                  |
+| ------------------------ | ------------------------ |
+| Exposes single app       | Routes multiple apps     |
+| L4 networking            | L7 HTTP routing          |
+| Internal/external access | Smart URL/domain routing |
+| Simpler                  | More advanced            |
+
+Real Enterprise Flow
+Internet
+   ↓
+Load Balancer
+   ↓
+Ingress Controller
+   ↓
+Ingress Rules
+   ↓
+Services
+   ↓
+Pods
+
+***************************************
+LIVELINESS AND READLINESS :
+
+Liveliness and readliness and Startup Probe (Third Important Probe): are critical for production-grade applications.
+
+They help Kubernetes answer:
+1. Is application alive?
+2. Is application ready to serve traffic?
+These are NOT the same thing.
+
+Why Probes Are Needed
+
+Suppose your Spring Boot app:
+starts slowly
+hangs internally
+database connection breaks
+deadlocks occur
+Container may still be: RUNNING but application is unusable.
+
+Kubernetes needs a way to detect this automatically.
+
+Two Main Probes
+Probe	Purpose
+Liveness Probe	Is app alive?
+Readiness Probe	Is app ready for traffic?
+
+Note : Liveliness and readiness should be added in Deployment.yml file
+
+1. Liveness Probe
+Asks: Should Kubernetes restart this container? 
+If liveness fails repeatedly: Kubernetes kills and restarts container
+
+Example Real Problem
+App gets: deadlocked,memory stuck, infinite loop, HTTP server stops responding then Liveness probe fails.Kubernetes auto-restarts pod.Very important self-healing feature.
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+
+  initialDelaySeconds: 30
+  periodSeconds: 10
+
+| Field                 | Meaning                 |
+| --------------------- | ----------------------- |
+| `httpGet`             | Check HTTP endpoint     |
+| `path`                | Endpoint to call        |
+| `port`                | Container port          |
+| `initialDelaySeconds` | Wait before first check |
+| `periodSeconds`       | Check every X seconds   |
+
+Liveness = FAIL
+↓
+Kubernetes restarts pod
+
+2. Readiness Probe
+Asks: Can this pod receive traffic right now? 
+If readiness fails: pod removed from Service load balancing BUT container is NOT restarted.
+
+Example Real Scenario
+Spring Boot starts. But:DB connection not ready, Kafka not connected,Camunda engine still initializing. Readiness probe says: NOT READY.Kubernetes waits and Traffic is NOT sent yet.
+
+| Situation       				| Liveness 					| Readiness |
+
+| App hung     	  				| Restart pod 				| Remove traffic |
+| App starting 	  				| Usually ignored initially | Block traffic |
+| DB temporarily unavailable 	| Maybe no restart 			| Stop traffic |
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+
+  initialDelaySeconds: 20
+  periodSeconds: 5
+  
+  Real Runtime Behavior
+
+Pod created
+↓
+Readiness = FAIL
+↓
+No traffic
+↓
+DB connected
+↓
+Readiness = SUCCESS
+↓
+Traffic starts
+
+Spring Boot Best Practice : Use dependency :Spring Boot Actuator
+It provides health endpoints:
+/actuator/health
+Updaate in apps.props :
+management.endpoints.web.exposure.include=health
+management.endpoint.health.probes.enabled=true
+
+
+3. Startup Probe (Third Important Probe)
+Useful for slow-starting apps.
+Prevents liveness probe from killing app too early.
+Very useful for: Camunda,large Spring Boot apps, JVM-heavy apps
+
+Example Full Production Setup
+startupProbe:
+  httpGet:
+    path: /actuator/health
+    port: 8080
+
+livenessProbe:
+  httpGet:
+    path: /actuator/health/liveness
+    port: 8080
+
+readinessProbe:
+  httpGet:
+    path: /actuator/health/readiness
+    port: 8080
+	
+Extremely Important Production Concept
+Without readiness probes:traffic may hit pod before app is ready
+Without liveness probes:hung apps may never recover automatically
+These probes are heavily used in real production Kubernetes clusters.	
+
+Complete Deployment.yml file with all 3 probes
+
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: dock-test-k8s
+  namespace: dev
+
+spec:
+  replicas: 2
+
+  selector:
+    matchLabels:
+      app: dock-test-k8s
+
+  template:
+
+    metadata:
+      labels:
+        app: dock-test-k8s
+
+    spec:
+
+      containers:
+
+        - name: dock-test-k8s
+
+          image: vinayakwarad/dock-test:v1
+
+          ports:
+            - containerPort: 8080
+
+
+          # -------------------------------------------------
+          # STARTUP PROBE
+          # -------------------------------------------------
+          # Checks whether application has fully started.
+          #
+          # Useful for slow-starting applications like:
+          # - Spring Boot
+          # - Camunda
+          # - JVM-heavy applications
+          #
+          # Until startup probe succeeds:
+          # - liveness probe is disabled
+          # - readiness probe is disabled
+          #
+          # Prevents Kubernetes from killing app too early.
+          # -------------------------------------------------
+
+          startupProbe:
+
+            httpGet:
+              path: /actuator/health
+              port: 8080
+
+            initialDelaySeconds: 10   # Wait before first probe
+            periodSeconds: 5          # Probe every 5 seconds
+            failureThreshold: 30      # Allow many failures during startup
+
+
+
+          # -------------------------------------------------
+          # READINESS PROBE
+          # -------------------------------------------------
+          # Checks whether app is ready to receive traffic.
+          #
+          # If readiness fails:
+          # - pod removed from service load balancing
+          # - NO restart happens
+          #
+          # Used for:
+          # - DB connection readiness
+          # - Kafka readiness
+          # - app initialization
+          # -------------------------------------------------
+
+          readinessProbe:
+
+            httpGet:
+              path: /actuator/health/readiness
+              port: 8080
+
+            initialDelaySeconds: 20
+            periodSeconds: 5
+            failureThreshold: 3
+
+
+
+          # -------------------------------------------------
+          # LIVENESS PROBE
+          # -------------------------------------------------
+          # Checks whether application is alive.
+          #
+          # If liveness fails repeatedly:
+          # Kubernetes restarts container automatically.
+          #
+          # Used for:
+          # - deadlocks
+          # - hung JVM
+          # - frozen application
+          # -------------------------------------------------
+
+          livenessProbe:
+
+            httpGet:
+              path: /actuator/health/liveness
+              port: 8080
+
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            failureThreshold: 3
+			
+Real Production Importance
+These probes are critical because they enable:
+self-healing
+zero-downtime deployments
+safe rolling updates
+traffic protection
+automatic recovery
+
+********************************************
+
+
+Resource Limits : (Deployment.yml)
+
+Why Resource Limits Are Needed
+
+Without limits:
+one buggy app may consume all memory
+CPU spikes may affect other apps
+node can become unstable
+
+Kubernetes is a shared environment.So resources must be controlled.
+
+| Concept  | Meaning                      |
+| -------- | ---------------------------- |
+| Requests | Minimum guaranteed resources |
+| Limits   | Maximum allowed resources    |
+
+| Resource | Meaning          |
+| -------- | ---------------- |
+| CPU      | Processing power |
+| Memory   | RAM              |
+
+Note : Schedular is the one which decides where our pod needs to be created.
+
+containers:
+  - name: dock-test-k8s
+    image: vinayakwarad/dock-test:v1
+    ports:
+      - containerPort: 8080
+
+    resources:
+      requests:
+        memory: "256Mi"  #Min memory for our container that will be allocated at startup
+        cpu: "250m"      #Min CPU for our container that will be allocated at startup
+      limits:
+        memory: "512Mi"  #Max memory for our container can get allocated to our container
+        cpu: "500m"      #Max CPU for our container can get allocated to our container (500m = 0.5 core)
+		
+If container exceeds memory limit then it gets crashed with OOMKilled (Out of memory killed)		
+
+How to checck metrics in Minnikube? Install metrics server: : "minikube addons enable metrics-server"
+Verify Usage : "kubectl top pods"
+NAME               CPU    MEMORY
+dock-test-pod      20m    180Mi
+
+Check Limits On Pod
+kubectl describe pod <pod>
+
+What Happens Without Requests/Limits?
+Kubernetes uses:BestEffort QoS Risky in production.Pods may:consume excessive resourcesand get evicted first.
+
+QoS Classes - Quality of Service (Very Important)
+| QoS        | Condition          |
+| ---------- | ------------------ |
+| Guaranteed | requests == limits |
+| Burstable  | requests < limits  |   (Most apps use Burstable)
+| BestEffort | no requests/limits |
+
+Recommended Spring Boot Starting Values For small Spring Boot apps:
+requests:
+  memory: "256Mi"
+  cpu: "250m"
+limits:
+  memory: "512Mi"
+  cpu: "500m"
+  
+Extremely Important Production Concept : This distinction is very important in interviews and real production Kubernetes.
+Requests affect:scheduling
+Limits affect:runtime enforcement
+ 
+Note :
+Kubernetes scheduler checks:Does node have enough FREE requested resources?before placing pod.
+Scheduler uses:REQUESTS	& NOT limits. 
+Limits matter AFTER pod starts. If pod limit was 700Mi and our pod consumer more memory than that then it will crash with OOMKilled
+ 
+| Resource              | Behavior         |
+| --------------------- | ---------------- |
+| CPU limit exceeded    | throttled/slowed |
+| Memory limit exceeded | container killed |
+
+Requests = scheduling guarantee
+Limits = runtime boundary
+
+Horizontal Pod Autoscaler uses resource requests for scaling calculations.Without proper requests:autoscaling behaves badly
+
+*******************************************************
+
+HELM
+
+HELM : Package manager for Kubernetes similar to: Maven for Java
+Version:"v4.2.0"
+
+Problem Helm Solves
+Imagine deploying:
+Spring Boot app
+Camunda
+PostgreSQL
+Kafka
+Ingress
+Secrets
+ConfigMaps
+Without Helm:huge number of YAML files becomes difficult to manage.
+
+Helm Main Idea
+Helm lets you:
+template YAMLs
+reuse configurations
+parameterize deployments
+install complex apps easily
+
+Without Helm:
+kubectl apply -f deployment.yml
+kubectl apply -f service.yml
+kubectl apply -f ingress.yml
+kubectl apply -f configmap.yml
+kubectl apply -f secret.yml
+
+With Helm: "helm install myapp ." - Everything deployed together.
+
+Important Helm Concepts
+| Concept     | Meaning                     |
+| ----------- | --------------------------- |
+| Chart       | Helm package                |
+| Release     | Installed instance of chart |
+| values.yaml | Configurable values         |
+| Templates   | YAML templates              |
+
+Very Important Analogy
+| Helm        | Java                         |
+| ----------- | ---------------------------- |
+| Chart       | Maven project                |
+| values.yaml | application.properties       |
+| Release     | Running application instance |
+
+Helm Architecture
+Helm Chart
+   ↓
+Templates + values
+   ↓
+Generated Kubernetes YAML
+   ↓
+Applied to cluster
+
+Example Helm Chart Structure : "helm create my-docktest-app"
+my-docktest-app/
+ ├── Chart.yaml
+ ├── values.yaml
+ ├── charts/
+ └── templates/
+      ├── deployment.yaml
+      ├── service.yaml
+      ├── ingress.yaml
+      ├── serviceaccount.yaml
+      ├── hpa.yaml
+      ├── _helpers.tpl
+      └── tests/
+
+1. Chart.yaml : Metadata about chart.
+apiVersion: v2
+name: myapp
+version: 1.0.0
+
+2. values.yaml: Contains configurable values.
+replicaCount: 2
+image:
+  repository: vinayakwarad/dock-test
+  tag: v1
+service:
+  port: 80
+
+3. templates/deployment.yaml : Templated Kubernetes YAML.
+Example : 
+replicas: {{ .Values.replicaCount }}
+Helm replaces dynamically.
+
+Why Helm Is Extremely Popular?
+Most enterprise apps provide Helm charts.
+Examples:
+Camunda
+Apache Kafka
+Prometheus
+Grafana
+
+Example: Camunda Installation
+
+Instead of manually creating:
+deployments
+services
+secrets
+ingress
+PVCs
+
+You simply run: helm install camunda camunda/camunda-platform. Huge productivity improvement.
+
+Why Enterprises Love Helm
+
+Because it supports:
+reusable deployments
+environment configs
+versioning
+upgrades
+rollback
+CI/CD integration
+
+Almost every production Kubernetes setup uses Helm. But why?
+Because:
+reusable deployments
+versioning
+upgrades
+rollbacks
+environment configs
+dependency management
+
+Real Example : You deploy:
+Spring Boot app
+PostgreSQL
+Redis
+Ingress
+HPA
+
+Without Helm: 15–20 YAML files
+With Helm:one reusable chart
+
+Helm Upgrade
+Suppose image changed.
+Update values.yaml then: "helm upgrade myapp ." - No need to manually reapply everything.
+Helm Rollback : "helm rollback myapp 1" - Rollback to previous version.
+Helm is basically: Kubernetes YAML templating + packaging system
+
+Real Production Flow
+Developer changes values.yaml
+        ↓
+CI/CD runs helm upgrade
+        ↓
+Helm generates YAML
+        ↓
+Kubernetes deploys changes
+
+
+----------------
+
+
+| Topic                | Importance |
+| -------------------- | ---------- |
+| values.yaml          | VERY HIGH  |
+| template rendering   | VERY HIGH  |
+| helm template        | VERY HIGH  |
+| helm install/upgrade | VERY HIGH  |
+| reusable charts      | HIGH       |
+---------------
+
+HELM installation steps :
+https://helm.sh/docs/intro/install/?utm_source=chatgpt.com
+Installation of HELM using WINGET : "winget install Helm.Helm"
+
+Verification : "helm version"
+| Command             | Purpose                 |
+| ------------------- | ----------------------- |
+| `helm create myapp` | Generate starter chart  |
+| `helm install`      | Install chart           |
+| `helm upgrade`      | Update deployment       |
+| `helm uninstall`    | Remove deployment       |
+| `helm template`     | Preview generated YAML  |
+| `helm list`         | List installed releases |
+
+Steps for using HELM :
+
+Step 1 : "helm version"
+Step 2 : Create helm template :  "helm create my-docktest-app"  - You can create run this in path where you want your Helm config file to be created
+     Note : my-docktest-app - Should always be in small letters
+        cmd : "cd ./my-docktest-app" - Get into created folder
+Step 3 : Remove Unnecessary Files Initially for learning purpose only : HPA,ingress,serviceaccount,tests 
+         Delete these files from: templates/ hpa.yaml, ingress.yaml, serviceaccount.yaml, NOTES.txt, tests folder
+		 Keep only :deployment.yaml, service.yaml, _helpers.tpl
+Step 2 : Update values.yaml
+replicaCount: 1
+
+image:
+  repository: vinayakwarad/dock-test #Your docker image from docker repo
+  pullPolicy: Always
+  tag: latest
+
+service:
+  type: NodePort
+  port: 8080
+
+resources:
+  requests:
+    memory: "512Mi"
+    cpu: "250m"
+
+  limits:
+    memory: "1Gi"
+    cpu: "500m"
+
+Step 4 :  Check deployment.yaml (templates/deployment.yaml) - Helm already generated most things.
+Just ensure container port: because Spring Boot runs on 8080.
+ports:
+  - name: http
+    containerPort: 8080
+
+Step 5 : Check service.yaml
+Ensure Below 
+type: {{ .Values.service.type }}
+port: {{ .Values.service.port }}
+targetPort: http
+
+Step 6 : See Generated YAML (VERY IMPORTANT)
+command : "helm template my-docktest-app ."
+final generated Kubernetes YAML, after values injection, Understand this deeply, Helm = template engine for Kubernetes YAML.
+
+Step 7 : Install Chart
+cmd : "helm install my-docktest-app ."  - This deploys app into Minikube.
+
+Step 8 : Verify Resources
+cmd : "kubectl get all"
+You should see: pod,deployment,service
+
+Step 9 : Access Application
+http://<minikube-ip>:32000/welcome
+Get minikube ip : "minikube ip"
+OR - "minikube service my-docktest-app --url"
+
+Step 10 : Upgrade deployment :
+Suppose image changes then run "helm upgrade my-docktest-app ." - This updates deployment.
+
+Step 11 : Uninstall
+Remove everything: "helm uninstall my-docktest-app"
+
+
+
+
+
+
+
+*******************************************
+How to stop all running container on my local
+How to delete all images from my local
+How to stop all running containers in local
+
+
+*********************************************
+
+**VVIP** - Ways of applying configs(Property values) to our containers in cluster****** :
+
+envFrom approach and volumeMount approach :
+Note : Whenever there is change in configmap pods needs restart
+
+Approach 1 : (ConfigMap → Environment Variables)
+Takes all the properties from configmap and injects into container (Each Key value is seperate entry )
+Environment variable approach 
+
+deployment.yml :
+spec:
+  template:
+    metadata:
+      labels:
+        app: dock-test
+    spec:
+      containers:
+        - name: dock-test-container
+          image: vinayakwarad/dock-test:latest
+          envFrom:
+            - configMapRef:
+                name: my-config-file		  
+		
+ConfigMap.yml :
+data:
+  APP_ENV: "devTestEnvt"                 # Entry 1
+  APP_MESSAGE: "Hello from Kubernetes"   # Entry 2
+  SERVER_PORT: "8080"			         # Entry 3
+  
+Verification : Here property values aare Environment variables
+Step 1 : kubectl get po -n dev
+Step 2 : kubectl exec -it <pod> -n dev -- sh
+Step 3 : printenv APP_ENV  
+  
+----------------
+
+Approach 2 : creates application.properties file in /config path and all properties will be inside that app.props 
+Volume mount approach
+
+configmap.yml
+data:
+  application.properties: |
+    APP_ENV=devTestEnvt
+    app.message=Hello from Kubernetes
+    server.port=8080
+	
+deployment.yml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: dock-test-k8s
+  namespace: dev
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: dock-test-k8s
+  template:
+    metadata:
+      labels:
+        app: dock-test-k8s
+    spec:
+      containers:
+        - name: dock-test-container
+          image: vinayakwarad/dock-test:latest
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+          volumeMounts:             # This mounts 
+            - name: config-volume
+              mountPath: /config
+      volumes:                     
+        - name: config-volume
+          configMap:
+            name: dock-test         # configfile metada name
+			
+			
+Verification : Here we check file is created and what are properties and values in it
+1. Step 1 : kubectl exec -it <pod-name> -n dev -- sh
+2. Step 2 : ls /config
+3. Step 3 : cat /config/application.properties
+	  
+	********************************
+2. Ways of applying secrets
+
+Approach 1 : envFrom approach where secrets will be applied as environmanr variables
+
+deployment.yml
+spec:
+  template:
+      spec:
+      containers:
+		envFrom:
+          - secretRef:
+              name: my-app-secret
+
+secret.yml
+stringData:
+  DB_USERNAME: myuser
+  DB_PASSWORD: mypassword
+  APP_ENV: PROD
+
+Verification :
+Step 1 : Verify Secret Exists : "kubectl get secret my-app-secret -n dev" (Optional)
+Step 2 : Verify Deployment Has envFrom : "kubectl describe deployment my-docktest-app -n dev" (Optional)
+Step 3 : Verify Inside Running Pod (MOST IMPORTANT) : "kubectl get pods -n dev"
+Step 4 : Print environment variables of secrets :"kubectl exec -it <pod-name> -n dev -- printenv"
+
+
+2. Mount Secret as Files (VERY Common)
+volumes:
+  - name: secret-volume
+    secret:
+      secretName: my-app-secret
+volumeMounts:
+  - name: secret-volume
+    mountPath: /etc/secrets
+    readOnly: true
+
+Inside container:
+
+/etc/secrets/DB_USERNAME
+/etc/secrets/DB_PASSWORD
+
+Each secret key becomes a file.
+
+Very common for:
+
+certificates
+private keys
+config files
+
+***************************************************************************
+
+3. Useful Commands
+
+Secrets 
+1.  See secrets that is applied to namespace/cluster
+kubectl get secret my-app-secret -n dev -o yaml -> This will be in encoded format even though you have provided stringdata in secrets file
+"kubectl get secret -n dev" -> shows list of Secrets in dev namespace.
+"kubectl get secret <secret-name> -n dev -o yaml" -> shows complete Secret content/details in YAML format (base64 encoded).
+
+2. Secrets are created and applied at namespace level and not pod level. But secerst applied to namespace can be referenced by any pod in that namespace(In deployment yml -container)
+Below secrets will be available as environment variables
+envFrom:
+  - secretRef:
+      name: my-app-secret
+	  
+Note : Volume mounts are available as files and not variables so they should be accessed using file.
+Usually Volume Mounts For :TLS certificates,Private keys,JKS files,PEM files,Large config files,JSON/YAML configs	  
+Ex : /etc/certs/tls.crt  , /etc/certs/tls.key
+
+Configmap
+1. See configmap that is applied to namespace/cluster :
+kubectl get cm -n dev -> Gives list of applied configmaps to namespace
+"kubectl get cm <configmap-name> -n dev -o yaml" -> shows content of specific cm
+"kubectl get cm --all-namespaces" -> List cms available Across all namespaces : 
+
+In Spring Boot Production
+| Config Type            | Common Approach |
+| ---------------------- | --------------- |
+| DB creds               | env vars        |
+| OAuth secrets          | env vars        |
+| SSL certs              | mounted files   |
+| Truststores/JKS        | mounted files   |
+| application.properties | ConfigMap mount |
+
+
+2. cm are created and applied at namespace level and not pod level. But cm applied to namespace can be referenced by any pod in that namespace(In deployment yml -container)
+envFrom:
+  - configMapRef:
+      name: my-config
+
+
+***************
+Generic verification :
+Step 1 : kubectl get configmap my-config-file -n dev
+Step 2 : kubectl describe cm my-config-file
+
+4.What is statefulset?
+Problem it solves: Some applications need, stable identity, stable storage, ordered startup/shutdown,
+ Examples:, databases, Kafka, Redis cluster, Elasticsearch, Zookeeper A normal Deployment cannot guarantee this properly.
+ 
+| Feature             | Deployment | StatefulSet |
+| ------------------- | ---------- | ----------- |
+| Pod names stable?   | No         | Yes         |
+| Persistent identity | No         | Yes         |
+| Stable storage      | No         | Yes         |
+| Ordered startup     | No         | Yes         |
+| Best for            | APIs       | Databases   |
+
+* Deployment Behavior, Pods get random names:, myapp-7f5d9, myapp-8h2ks, If Pod dies:, new Pod gets new name, storage may change, Fine for Spring Boot APIs.
+* StatefulSet Behavior, Pods get fixed names:, mysql-0, mysql-1, mysql-2, If Pod restarts:, same name returns, same storage returns, VERY important for databases.
+* Stable Pod Identity : Always predictable:, mysql-0, mysql-1, mysql-2, 
+ Stable Persistent Volume : Each Pod gets dedicated storage, Example:, mysql-0 -> PVC-0, mysql-1 -> PVC-1, Storage survives Pod restart
+3. Ordered Startup: Pods start sequentially: mysql-0 starts first, mysql-1 starts second, mysql-2 starts third, Important for clustered databases. 
+
+* Basic StatefulSet Example
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: mysql
+spec:
+  serviceName: mysql
+  replicas: 2
+  selector:
+    matchLabels:
+      app: mysql
+  template:
+    metadata:
+      labels:
+        app: mysql
+    spec:
+      containers:
+        - name: mysql
+          image: mysql:8
+          ports:
+            - containerPort: 3306
+			
+* StatefulSet usually needs: Headless Service. Example: clusterIP: None, Why?, Because each Pod gets unique DNS Example: mysql-0.mysql, mysql-1.mysql, This enables Pod-to-Pod communication.
+* Storage in StatefulSet, Usually uses: volumeClaimTemplates. Kubernetes auto-creates PVC per Pod.
+Ex :
+volumeClaimTemplates:
+  - metadata:
+      name: mysql-data
+
+    spec:
+      accessModes: ["ReadWriteOnce"]
+
+      resources:
+        requests:
+          storage: 1Gi
+| Technology      | Uses StatefulSet? |
+| --------------- | ----------------- |
+| MySQL           | Yes               |
+| PostgreSQL      | Yes               |
+| Kafka           | Yes               |
+| Redis cluster   | Yes               |
+| Elasticsearch   | Yes               |
+| Spring Boot API | Usually No        |
+
+* Important Interview Understanding, StatefulSet ≠ “stateful application only”, It means:, application needing stable identity/storage/order
+
+Conclusion : 
+Stateful applications need stable Pod identities.
+
+A normal ClusterIP Service load-balances requests to any available Pod,
+which is unsuitable for Pod-to-Pod communication in distributed databases.
+
+A Headless Service (clusterIP: None) provides stable DNS names for each Pod,
+allowing replicas to communicate with specific Pods such as the primary.
+
+Stateless applications usually use normal ClusterIP Services because any Pod can handle the request.
+
+1. Why replicas cannot use a normal ClusterIP Service
+
+ClusterIP resolves to random pods, so postgres replicas cannot reliably find the primary pod to replicate data from primary and maintain data consistency.
+
+Example:
+
+postgres-1
+    ↓
+postgres-service
+    ↓
+could go to postgres-0 (primary)
+or postgres-2 (replica)
+or postgres-1 itself
+
+For replication, PostgreSQL needs: postgres-1 → connect specifically to postgres-0 : not "any available pod".
+
+That's why stable DNS names are needed:
+
+postgres-0.my-postgres-headless
+postgres-1.my-postgres-headlessYour understanding:
+
+ClusterIP resolves to random pods, so postgres replicas cannot reliably find the primary and data consistency will be lost.
+---------
+PostgreSQL Primary/Replica architecture and how Bitnami Helm charts expose multiple Services (primary service, replica service, headless service)
+
+Files required for creating stateful application : 
+StatefulSet YAML	✅ Yes	Creates stateful pods and PVCs
+Service YAML (Headless)	✅ Yes	Stable DNS for pods
+
+1. Headless Service
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres-headless
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+    - port: 5432
+	
+2. StatefulSet
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+spec:
+  serviceName: postgres-headless
+
+  replicas: 1
+
+  selector:
+    matchLabels:
+      app: postgres
+
+  template:
+    metadata:
+      labels:
+        app: postgres
+
+    spec:
+      containers:
+        - name: postgres
+          image: postgres:16
+
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes:
+          - ReadWriteOnce
+        resources:
+          requests:
+            storage: 8Gi	
+
+Minimal StatefulSet deployment checklist: ✓ StatefulSet,✓ Headless Service
+Optional:✓ ConfigMap,✓ Secret,✓ Ingress,✓ values.yaml (Helm)	
+
+*****************************************************************************************
+
+1. While creating my app image if I have application.properties and few properties  inside it and same properties I have in cm yml with diff values. 
+So when I install my app through helm which will take priority?
+- Spring Boot's property resolution gives higher priority to environment variables than values inside the packaged application.properties.
+Spring Boot Property Priority (simplified) : Highest priority:
+1. Command line arguments
+2. Environment variables (ConfigMap/Secret)
+3. application.yml
+4. application.properties inside JAR
+
+*****************************************************************************************
+
+Q&A 
+1. How are Pod names generated?
+- They are derived from deployment yml.
+
+spec
+  selector:
+    matchLabels:
+      app: dock-test-k8s   # Maintains all the pods with name
+	  
+2. What is the purpose of Service?
+- Service YAML contains name of service and type.And Stable network endpoint because Pod IPs change.	
+Service defines: Service name,Service type,Ports,Pod selection rules  .
+Common service types:ClusterIP,NodePort,LoadBalancer
+
+3. What is the relationship between Service and Pod?
+- Service does NOT directly point to Pods.
+Instead: Service-> Label Selector -> Matching Pods 
+
+service.yml :
+spec:
+  selector:
+    app: dock-test-k8s  #Finds matching pods using labels and Routes traffic to them
+	
+The Service becomes a stable entry point while Pods can be created and destroyed behind it.
+
+4. What is the purpose of Chart.yaml?
+- Chart.yaml contains chart metadata.
+
+Typical responsibilities: Chart name, Chart version, Application version, Dependencies, Description.
+Dependencies : 
+Ex : Spring Boot Application -> depends on -> PostgreSQL Driver. The PostgreSQL driver is a dependency and Without it, your application cannot talk to PostgreSQL.
+
+What does dependency mean in Helm? One Helm Chart requires another Helm Chart.
+Instead of asking users to install PostgreSQL separately, your chart can declare.
+
+What kinds of things are typically dependencies?
+| Application      | Dependency |
+| ---------------- | ---------- |
+| Spring Boot      | PostgreSQL |
+| Spring Boot      | MySQL      |
+| Microservice     | Redis      |
+| Event-driven App | Kafka      |
+| Monitoring Stack | Prometheus |
+
+5. What is the purpose of Deployment?
+- Deployment describes: How application Pods should run
+Container Definition : Which Docker image to run
+Replica Count :How many Pods should exist
+ConfigMap Usage : Which configuration should be injected
+Secret Usage : Which credentials should be injected
+Resource Limits : CPU,Memory,limits and requests.
+Health Checks :Liveness Probe,Readiness Probe.(Is application alive? ,Is application ready for traffic?)
+Volumes -> Defines:Persistent storage,Mounted files,Secrets,ConfigMaps.
+
+6. Spring Boot Property Priority (Highest to Lowest)
+- Command line arguments 
+- Environment variables (ConfigMap/Secret)
+- application.yml
+- application.properties inside JAR
+
+7. How to check what helm is applied to my cluster?
+-
+
+8. How do I see the values applied to a release when I install or upgrade my helm chart?
+- "helm get values my-docktest-app -n dev"
+
+10. How do I see all generated manifests? - Debug/Verify what Helm actually deployed
+- "helm get manifest my-docktest-app -n dev"
+
+11. How do I see complete release information? - Display information about a Helm release.
+- "helm status my-docktest-app -n dev"
+
+Ex Output :
+NAME: my-docktest-app
+LAST DEPLOYED: Mon Jun 1 10:15:30 2026
+NAMESPACE: dev
+STATUS: deployed
+REVISION: 3
+TEST SUITE: None
+
+12. How do I see the history of a release? - This shows how many times our helm was upgraded(1 install + number of upgrades)
+- "helm history my-docktest-app -n dev"
+
+D:\dockTest\helm\my-docktest-app>helm history my-docktest-app -n dev
+REVISION        UPDATED                         STATUS          CHART                   APP VERSION     DESCRIPTION
+1               Sat May 30 13:24:53 2026        superseded      my-docktest-app-0.1.0   1.16.0          Install complete
+2               Sat May 30 13:28:27 2026        superseded      my-docktest-app-0.1.0   1.16.0          Upgrade complete
+3               Tue Jun  2 10:47:17 2026        superseded      my-docktest-app-0.1.1   1.16.0          Upgrade complete
+4               Tue Jun  2 10:49:10 2026        superseded      my-docktest-app-0.1.1   1.16.0          Rollback to 3
+5               Tue Jun  2 10:49:58 2026        deployed        my-docktest-app-0.1.0   1.16.0          Rollback to 1
+
+13. List all Helm releases across all namespaces? - What is deployed in the cluster
+
+D:\dockTest\helm\my-docktest-app>helm list -A
+NAME            NAMESPACE       REVISION        UPDATED                                 STATUS          CHART                   APP VERSION
+my-docktest-app dev             5               2026-06-02 10:49:58.38392 +0530 IST     deployed        my-docktest-app-0.1.0   1.16.0
+my-postgres     dev             1               2026-05-30 13:33:31.4006741 +0530 IST   deployed        postgresql-18.6.7       18.4.0
+
+14. Rollback to specific version of helm release? - For number of available release/revision refer Q12
+- "helm rollback my-docktest-app <revision> -n dev"
+
+15. How to see generated YAML before deployment?
+- "helm template ."
+
+For specific environment : "helm template . -f values-prod.yaml"
+
+16. Whenever you update chart with dependencies like (PostgreSQL,Redis,Kafka) 
+- "helm dependency update"
+
+17. Uninstall release ?
+- "helm uninstall my-docktest-app -n dev"
+
+18. Generic commands
+
+helm list -A
+helm status <release> -n <namespace>
+helm history <release> -n <namespace>
+helm get values <release> -n <namespace>
+helm upgrade --install <release> . -n <namespace>
+helm rollback <release> <revision> -n <namespace>
+helm template .
+kubectl get pods -n <namespace>
+kubectl describe pod <pod> -n <namespace>
+kubectl logs -f <pod> -n <namespace>
+kubectl get svc -n dev
+kubectl get ingress -n dev
+kubectl get cm -n dev
+kubectl get secret -n dev
+kubectl get pvc -n dev
+
+19. In realtime prod , Do I need to intall helm like I did in previous steps and run these helm commands one by one like helm install / helm upgrade etc or will I have any automates jobs for this?
